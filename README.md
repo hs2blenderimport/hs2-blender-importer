@@ -2,6 +2,7 @@
 
 ## Prereqs
 - Grey Mesh Exporter
+
 *These prereqs are if you want to rig using the exported bones*
 - Auto Rig Pro
 - Better FBX Importer
@@ -12,6 +13,7 @@
   - Or wherever your blender scripts directory is located
 2. Enable the addon in blender
 3. Export from HS2 using Grey's Mesh Exporter
+  - Export in the T pose
 4. Import in blender using Better FBX Importer (Don't need Better FBX Importer if you are going to rig yourself)
 5. Add texture directory from exported hs2 model
 6. Assign Basic Materials
