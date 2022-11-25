@@ -5,7 +5,7 @@ Prereqs:
 
 Instructions:
 1. Add __init__ file to C:\Users\<user>\AppData\Roaming\Blender Foundation\Blender\3.2\scripts\hs2_importer
-  - Or wherever your blender scripts directory is located
+  1. Or wherever your blender scripts directory is located
 2. Enable the addon in blender
 3. Export from HS2 using Grey's Mesh Exporter
 4. Import in blender using Better FBX Importer (Don't need Better FBX Importer if you are going to rig yourself)
@@ -13,10 +13,10 @@ Instructions:
 6. Assign Basic Materials
 7. Create hair and clothes materials
 8. (Optional) Use Auto Rig Pro to map exported bones to rig
-  - Use the "Quick Rig" feature with the provided bone_mapping.py file (or you can do the mapping yourself)
-  - When quick rigging, use the "Preserve" option to keep accessories rigged
-    - You'll need to parent the new rig to the old one so they move together
-  - Best to adjust the layer to 2 so that all extra bones aren't in the same layer
+  1. Use the "Quick Rig" feature with the provided bone_mapping.py file (or you can do the mapping yourself)
+  2. When quick rigging, use the "Preserve" option to keep accessories rigged
+    3. You'll need to parent the new rig to the old one so they move together
+  3. Best to adjust the layer to 2 so that all extra bones aren't in the same layer
 9. (Optional) Configure bones (this just rotates fingers correctly, adds constraints, and adds a look at bone)
 
 Notes:
