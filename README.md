@@ -1,7 +1,8 @@
 # hs2-blender-importer
 
 ## Prereqs
-*Only prereqs are if you want to rig using the exported bones*
+- Grey Mesh Exporter
+*These prereqs are if you want to rig using the exported bones*
 - Auto Rig Pro
 - Better FBX Importer
 
