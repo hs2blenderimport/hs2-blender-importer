@@ -123,6 +123,10 @@ class Adjustments(bpy.types.Panel):
         col.prop(properties, "eyebrow_shape")
         col.label(text = "Eyebrows Amount")
         col.prop(properties, "eyebrows_amount", slider=True)
+        col.separator()
+        col.separator()
+        col.label(text = "Look at")
+        col.prop(properties, "look_at_target")
 
 class DisabledOperator(bpy.types.Operator):
     bl_idname = "op.disabled_operator"
@@ -690,6 +694,28 @@ class ArmatureProperties(bpy.types.PropertyGroup):
         default = 100,
         update = update_eyebrows,
     )
+    
+    def update_look_at_target(self, context):
+        current_mode = bpy.context.object.mode
+        
+        bpy.ops.object.mode_set(mode='POSE')
+        armature = getArmature(context)
+        bones = armature.pose.bones
+        
+        look_at_bone = bones["look_at"]
+        for side in ["L", "R"]:
+            look_at_bone = bones["cf_J_look_" + side]
+            for constraint in look_at_bone.constraints:
+                if "TRACK_TO" == constraint.type or "LIMIT_ROTATION" == constraint.type:
+                    constraint.enabled = armature.armature_properties.look_at_target == "follow"
+        
+        bpy.ops.object.mode_set(mode=current_mode)
+    
+    look_at_target : bpy.props.EnumProperty(
+        name = "",
+        items = [("follow", "Follow bone", ""), ("forward", "Forward", "")],
+        update = update_look_at_target
+    )
 
 class GlobalProperties(bpy.types.PropertyGroup):
     textures_path : bpy.props.StringProperty(default = "", maxlen = 4096, subtype = "DIR_PATH")
@@ -720,17 +746,20 @@ class Test(bpy.types.Operator):
     bl_label = "Test"
     
     def execute(self, context):
-        armature = getArmature(context)
+        current_mode = bpy.context.object.mode
         
-        material = getObjectWithPrefix(context, "o_eyebase_L").active_material
-        separate_rgb = getNodeFromImageTexture(material, "Texture2", "Separate RGB")
-        eye_color_mix = getNodeFromImageTexture(material, "Texture2", "Eye Color")
-        eye_color_type = armature.armature_properties.eye_color_type
-        removeNodeLink(material, eye_color_mix.inputs[1], separate_rgb)
-        material.node_tree.links.new(
-            separate_rgb.outputs[2] if eye_color_type == "type_1" else separate_rgb.outputs[1],
-            eye_color_mix.inputs[1]
-        )
+        bpy.ops.object.mode_set(mode='POSE')
+        armature = getArmature(context)
+        bones = armature.pose.bones
+        
+        look_at_bone = bones["look_at"]
+        for side in ["L", "R"]:
+            look_at_bone = bones["cf_J_look_" + side]
+            for constraint in look_at_bone.constraints:
+                if "TRACK_TO" == constraint.type or "LIMIT_ROTATION" == constraint.type:
+                    constraint.enabled = armature.armature_properties.look_at_target == "follow"
+        
+        bpy.ops.object.mode_set(mode=current_mode)
         
         return {"FINISHED"}
     
@@ -748,27 +777,27 @@ class AssignMaterials(bpy.types.Operator):
         material = bpy.data.materials.new(name = "head")
         HeadMaterialBuilder(context, material).CreateMaterial()
         getObjectWithPrefix(context, "o_head").active_material = material
-#        
-#        # Eyes
-#        material = bpy.data.materials.new(name = "eyes")
-#        EyeMaterialBuilder(context, material).CreateMaterial()
-#        getObjectWithPrefix(context, "o_eyebase_L").active_material = material
-#        getObjectWithPrefix(context, "o_eyebase_R").active_material = material
-#        
-#        # Eyelashes
-#        material = bpy.data.materials.new(name = "eyelashes")
-#        EyelashesMaterialBuilder(context, material).CreateMaterial()
-#        getObjectWithPrefix(context, "o_eyelashes").active_material = material
-#        
-#        # Tongue
-#        material = bpy.data.materials.new(name = "tongue")
-#        TongueMaterialBuilder(context, material).CreateMaterial()
-#        getObjectWithPrefix(context, "o_tang").active_material = material
-#        
-#        # Teeth
-#        material = bpy.data.materials.new(name = "teeth")
-#        TeethMaterialBuilder(context, material).CreateMaterial()
-#        getObjectWithPrefix(context, "o_tooth").active_material = material
+        
+        # Eyes
+        material = bpy.data.materials.new(name = "eyes")
+        EyeMaterialBuilder(context, material).CreateMaterial()
+        getObjectWithPrefix(context, "o_eyebase_L").active_material = material
+        getObjectWithPrefix(context, "o_eyebase_R").active_material = material
+        
+        # Eyelashes
+        material = bpy.data.materials.new(name = "eyelashes")
+        EyelashesMaterialBuilder(context, material).CreateMaterial()
+        getObjectWithPrefix(context, "o_eyelashes").active_material = material
+        
+        # Tongue
+        material = bpy.data.materials.new(name = "tongue")
+        TongueMaterialBuilder(context, material).CreateMaterial()
+        getObjectWithPrefix(context, "o_tang").active_material = material
+        
+        # Teeth
+        material = bpy.data.materials.new(name = "teeth")
+        TeethMaterialBuilder(context, material).CreateMaterial()
+        getObjectWithPrefix(context, "o_tooth").active_material = material
 
             
         return {"FINISHED"}
@@ -794,7 +823,7 @@ class MaterialBuilder():
                 filenames = os.listdir(bpy.path.abspath(self.context.scene.properties.textures_path))
                 texture_name = texture_metadata["name"]
                 texture_file_name = [
-                    filename for filename in filenames if self.TextureNamePrefix() in filename and "_" + texture_name in filename
+                    filename for filename in filenames if self.TextureNamePrefix() + "_" in filename and "_" + texture_name in filename
                 ][0]
                 texture[texture_name] = bpy.data.images.load(
                     self.context.scene.properties.textures_path + 
@@ -1013,7 +1042,7 @@ class HeadMaterialBuilder(MaterialBuilder):
 
 class EyeMaterialBuilder(MaterialBuilder):
     def TextureNamePrefix(self):
-        return "cf_m_eye"
+        return "c_m_eye"
     
     def TextureMetadata(self):
         return [
@@ -1350,8 +1379,9 @@ class ConfigureBones(bpy.types.Operator):
         for constraint in constraints:
             bone = armature.pose.bones[constraint["original_bone"]]
             constraint_obj = bone.constraints.new(constraint["constraint_type"])
-            constraint_obj.target = armature
-            constraint_obj.subtarget = constraint["target_bone"]
+            if constraint["target_bone"] != None:
+                constraint_obj.target = armature
+                constraint_obj.subtarget = constraint["target_bone"]
             constraint_obj.influence = constraint["influence"]
             
             if constraint["constraint_type"] == "COPY_ROTATION" or constraint["constraint_type"] == "COPY_LOCATION":
@@ -1368,6 +1398,18 @@ class ConfigureBones(bpy.types.Operator):
                 constraint_obj.up_axis = constraint["up_axis"]
                 constraint_obj.owner_space = "POSE"
                 constraint_obj.target_space = "POSE"
+            
+            if constraint["constraint_type"] == "LIMIT_ROTATION":
+                constraint_obj.use_limit_x = constraint["use_limit_x"]
+                constraint_obj.min_x = constraint["min_x"]
+                constraint_obj.max_x = constraint["max_x"]
+                
+                constraint_obj.use_limit_y = constraint["use_limit_y"]
+                constraint_obj.min_y = constraint["min_y"]
+                constraint_obj.max_y = constraint["max_y"]
+                
+                constraint_obj.use_limit_z = constraint["use_limit_z"]
+                constraint_obj.owner_space = constraint["owner_space"]
                 
     
     def addLegConstraints(self, context):
@@ -1459,6 +1501,7 @@ class ConfigureBones(bpy.types.Operator):
             look_at_eye_bone.tail = (look_at_bone.tail[0] + (tail_x_diff * .75), look_at_bone.tail[1], look_at_bone.tail[2])
             look_at_eye_bone.layers[0] = True
             look_at_eye_bone.roll = math.radians(90)
+            look_at_eye_bone.parent = look_at_bone
             
         bpy.ops.object.mode_set(mode='POSE')
         bones = getArmature(context).pose.bones
@@ -1466,20 +1509,24 @@ class ConfigureBones(bpy.types.Operator):
         look_at_bone = bones["look_at"]
         for side in ["L", "R"]:
             constraints = [{
-                "original_bone": "look_at_eye." + side.lower(),
-                "target_bone": "look_at",
-                "constraint_type": "COPY_LOCATION",
-                "use_x": True,
-                "use_y": True,
-                "use_z": True,
-                "influence": 1,
-                "use_offset": True
-            }, {
                 "original_bone": "cf_J_look_" + side,
                 "target_bone": "look_at_eye." + side.lower(),
                 "constraint_type": "TRACK_TO",
                 "track_axis": "TRACK_Z",
                 "up_axis": "UP_Y",
+                "influence": 1,
+            }, {
+                "constraint_type": "LIMIT_ROTATION",
+                "original_bone": "cf_J_look_" + side,
+                "target_bone": None,
+                "use_limit_x": True,
+                "min_x": math.radians(-16),
+                "max_x": math.radians(16),
+                "use_limit_y": True,
+                "min_y": math.radians(-30),
+                "max_y": math.radians(30),
+                "owner_space": "LOCAL",
+                "use_limit_z": True,
                 "influence": 1,
             }]
             self.addConstraints(context, constraints)
